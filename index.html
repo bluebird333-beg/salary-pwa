@@ -542,8 +542,16 @@ body {
         <div class="field"><label>식대 (원)</label><input type="number" id="kika-meal" value="200000" oninput="calcKika()"></div>
       </div>
       <div class="input-grid">
-        <div class="field"><label>선불권 판매 수량</label><input type="number" id="kika-voucher" value="0" oninput="calcKika()" placeholder="100개↑ 인센티브"></div>
-        <div class="field"><label>보너스 (원)</label><input type="number" id="kika-bonus" value="0" oninput="calcKika()" placeholder="설·추석·휴가비"></div>
+        <div class="field">
+          <label>선불권 판매 수량</label>
+          <input type="number" id="kika-voucher" value="0" oninput="calcKika()" placeholder="100개 초과분 인센티브">
+          <span id="kika-voucher-hint" style="font-size:11px;color:var(--text3);margin-top:2px;"></span>
+        </div>
+        <div class="field"><label>인센티브 (자동계산)</label><input type="text" id="kika-incentive-display" readonly style="background:var(--surface2);color:var(--accent2);font-family:'DM Mono',monospace;font-weight:500;"></div>
+      </div>
+      <div class="input-grid">
+        <div class="field"><label>명절 보너스 (원)</label><input type="number" id="kika-holiday" value="0" oninput="calcKika()" placeholder="설·추석 시 입력"></div>
+        <div class="field"><label>휴가비 (원)</label><input type="number" id="kika-vacation" value="0" oninput="calcKika()" placeholder="휴가비 지원 시 입력"></div>
       </div>
       <div class="result-box">
         <div class="result-label">이번 달 지급액</div>
@@ -554,15 +562,16 @@ body {
 
     <div class="benefit-note">
       <strong>혜택 안내</strong>
-      선불권 100개 이상 판매 시 → 개당 5,000원 인센티브<br>
-      설·추석 보너스 100,000원 / 휴가비 지원 100,000원
+      선불권 100개 초과분부터 개당 5,000원 인센티브<br>
+      예) 151개 판매 → 51개 × 5,000원 = 255,000원
     </div>
 
     <div class="summary-box" style="margin-top:12px">
       <div class="summary-row"><span class="label">기본급</span><span class="val" id="kika-base-sum">3,000,000원</span></div>
       <div class="summary-row"><span class="label">식대</span><span class="val" id="kika-meal-sum">200,000원</span></div>
       <div class="summary-row"><span class="label">인센티브</span><span class="val" id="kika-incentive-sum">0원</span></div>
-      <div class="summary-row"><span class="label">보너스</span><span class="val" id="kika-bonus-sum">0원</span></div>
+      <div class="summary-row"><span class="label">명절 보너스</span><span class="val" id="kika-holiday-sum">0원</span></div>
+      <div class="summary-row"><span class="label">휴가비</span><span class="val" id="kika-vacation-sum">0원</span></div>
       <div class="summary-row"><span class="label">키카 합계</span><span class="val" id="kika-total">3,200,000원</span></div>
     </div>
 
@@ -679,18 +688,31 @@ function calcKika() {
   const base = num('kika-year');
   const meal = num('kika-meal');
   const v = num('kika-voucher');
-  const bonus = num('kika-bonus');
-  const incentive = v >= 100 ? v * 5000 : 0;
-  const total = base + meal + incentive + bonus;
+  const holiday = num('kika-holiday');
+  const vacation = num('kika-vacation');
+  const overQty = v > 100 ? v - 100 : 0;
+  const incentive = overQty * 5000;
+  const total = base + meal + incentive + holiday + vacation;
+
+  // 인센티브 힌트
+  const hint = document.getElementById('kika-voucher-hint');
+  if (v > 100) hint.textContent = '초과 ' + overQty + '개 × 5,000원 = ' + incentive.toLocaleString('ko-KR') + '원';
+  else if (v > 0) hint.textContent = '100개 초과 시 인센티브 발생';
+  else hint.textContent = '';
+
+  document.getElementById('kika-incentive-display').value = incentive > 0 ? incentive.toLocaleString('ko-KR') + '원' : '0원';
+
   set('kika-pay', fmt(total));
   let bd = '기본급 ' + base.toLocaleString('ko-KR') + ' + 식대 ' + meal.toLocaleString('ko-KR');
   if (incentive > 0) bd += ' + 인센티브 ' + incentive.toLocaleString('ko-KR');
-  if (bonus > 0) bd += ' + 보너스 ' + bonus.toLocaleString('ko-KR');
+  if (holiday > 0) bd += ' + 명절 ' + holiday.toLocaleString('ko-KR');
+  if (vacation > 0) bd += ' + 휴가비 ' + vacation.toLocaleString('ko-KR');
   set('kika-breakdown', bd);
   set('kika-base-sum', fmt(base));
   set('kika-meal-sum', fmt(meal));
   set('kika-incentive-sum', fmt(incentive));
-  set('kika-bonus-sum', fmt(bonus));
+  set('kika-holiday-sum', fmt(holiday));
+  set('kika-vacation-sum', fmt(vacation));
   set('kika-total', fmt(total));
 }
 
@@ -745,14 +767,17 @@ function shareKakao(type) {
     const base = num('kika-year');
     const meal = num('kika-meal');
     const v = num('kika-voucher');
-    const bonus = num('kika-bonus');
-    const incentive = v >= 100 ? v * 5000 : 0;
-    const total = base + meal + incentive + bonus;
+    const holiday = num('kika-holiday');
+    const vacation = num('kika-vacation');
+    const overQty = v > 100 ? v - 100 : 0;
+    const incentive = overQty * 5000;
+    const total = base + meal + incentive + holiday + vacation;
     text += `\n[키카-매니저]\n`;
     text += `• 기본급: ${base.toLocaleString('ko-KR')}원\n`;
     text += `• 식대: ${meal.toLocaleString('ko-KR')}원\n`;
-    if (incentive > 0) text += `• 인센티브: ${incentive.toLocaleString('ko-KR')}원\n`;
-    if (bonus > 0) text += `• 보너스: ${bonus.toLocaleString('ko-KR')}원\n`;
+    if (incentive > 0) text += `• 인센티브: ${incentive.toLocaleString('ko-KR')}원 (${overQty}개 × 5,000원)\n`;
+    if (holiday > 0) text += `• 명절 보너스: ${holiday.toLocaleString('ko-KR')}원\n`;
+    if (vacation > 0) text += `• 휴가비: ${vacation.toLocaleString('ko-KR')}원\n`;
     text += `• 합계: ${total.toLocaleString('ko-KR')}원`;
   } else {
     const rate = num('on-rate');
@@ -782,9 +807,11 @@ function getState() {
   const p1 = num('hw1-days') * num('hw1-hours') * num('hw1-rate') + num('hw1-bonus');
   const p2 = num('hw2-days') * num('hw2-hours') * num('hw2-rate') + num('hw2-bonus');
   const base = num('kika-year'); const meal = num('kika-meal');
-  const v = num('kika-voucher'); const bonus = num('kika-bonus');
-  const incentive = v >= 100 ? v * 5000 : 0;
-  const kikaTotal = base + meal + incentive + bonus;
+  const v = num('kika-voucher');
+  const holiday = num('kika-holiday'); const vacation = num('kika-vacation');
+  const overQty = v > 100 ? v - 100 : 0;
+  const incentive = overQty * 5000;
+  const kikaTotal = base + meal + incentive + holiday + vacation;
   const rate = num('on-rate'); const jw = num('on-juhyu-weeks');
   const onTotal2 = weekHours.reduce((a,b)=>a+b,0);
   const onBase = onTotal2 * rate;
