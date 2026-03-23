@@ -695,6 +695,32 @@ function onMonthChange() {
   const py = m === 12 ? y + 1 : y;
   const pm = m === 12 ? 1 : m + 1;
   set('hw-paydate', py + '년 ' + pm + '월 11일');
+
+  // 화펜 입력 초기화 (시급·근무시간 유지)
+  ['hw1-base-days','hw1-absent','hw1-extra','hw1-bonus','hw1-note',
+   'hw2-base-days','hw2-absent','hw2-extra','hw2-bonus','hw2-note'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('hw1-days-display').value = '';
+  document.getElementById('hw2-days-display').value = '';
+
+  // 키카 초기화 (기준연도·식대 유지)
+  ['kika-voucher','kika-holiday','kika-vacation'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('kika-incentive-display').value = '';
+  document.getElementById('kika-voucher-hint').textContent = '';
+
+  // 온라인 초기화 (시급 유지)
+  weekHours = [];
+  buildWeekInputs();
+
+  // 각 탭 재계산
+  calcHwapen();
+  calcKika();
+  calcOnline();
 }
 document.getElementById('sel-year').addEventListener('change', onMonthChange);
 document.getElementById('sel-month').addEventListener('change', onMonthChange);
