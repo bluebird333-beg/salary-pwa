@@ -619,7 +619,7 @@ body {
       <div class="card-label">온라인 알바</div>
       <div class="input-grid">
         <div class="field"><label>시급 (원)</label><input type="number" id="on-rate" value="10320" oninput="calcOnline()"></div>
-        <div class="field"><label>주휴수당 발생 주 수</label><input type="number" id="on-juhyu-weeks" value="" placeholder="0" oninput="calcOnline()"></div>
+        <div class="field"><label>주휴수당 발생 주 (자동)</label><input type="text" id="on-juhyu-weeks-display" readonly style="background:var(--surface2);color:var(--accent2);font-family:'DM Mono',monospace;font-weight:500;" placeholder="15시간↑ 주 자동계산"></div>
       </div>
       <div class="card-label" style="margin-top:8px;">주별 근무시간</div>
       <div id="week-inputs"></div>
@@ -632,10 +632,11 @@ body {
     </div>
 
     <div class="summary-box">
-      <div class="summary-row"><span class="label">총 근무시간</span><span class="val" id="on-total-hours">57시간</span></div>
-      <div class="summary-row"><span class="label">기본 급여</span><span class="val" id="on-base-pay">588,240원</span></div>
-      <div class="summary-row"><span class="label">주휴수당</span><span class="val" id="on-juhyu">83,592원</span></div>
-      <div class="summary-row"><span class="label">온라인 합계</span><span class="val" id="on-total">671,832원</span></div>
+      <div class="summary-row"><span class="label">총 근무시간</span><span class="val" id="on-total-hours">0시간</span></div>
+      <div class="summary-row"><span class="label">기본 급여</span><span class="val" id="on-base-pay">0원</span></div>
+      <div class="summary-row"><span class="label">주휴수당 발생 (15h↑)</span><span class="val" id="on-juhyu-weeks-display2">0주</span></div>
+      <div class="summary-row"><span class="label">주휴수당 합계</span><span class="val" id="on-juhyu">0원</span></div>
+      <div class="summary-row"><span class="label">온라인 합계</span><span class="val" id="on-total">0원</span></div>
     </div>
 
     <button class="share-btn" onclick="shareKakao('online')">
@@ -791,17 +792,36 @@ function buildWeekInputs() {
 function addWeek() { weekHours.push(0); buildWeekInputs(); calcOnline(); }
 function calcOnline() {
   const rate = num('on-rate');
-  const jw = num('on-juhyu-weeks');
   const total = weekHours.reduce((a, b) => a + b, 0);
   const base = total * rate;
-  const avg = weekHours.length ? total / weekHours.length : 0;
-  const juhyu = jw > 0 ? Math.round(avg * rate) * jw : 0;
+
+  // 주휴수당: 주 15시간 이상인 주에 대해 (해당주 시간 ÷ 5) × 시급
+  let juhyu = 0;
+  let juhyuWeeks = 0;
+  let juhyuDetail = [];
+  weekHours.forEach((h, i) => {
+    if (h >= 15) {
+      const weekJuhyu = (h / 5) * rate;
+      juhyu += weekJuhyu;
+      juhyuWeeks++;
+      juhyuDetail.push(`제${i+1}주 ${h}h÷5×${rate.toLocaleString('ko-KR')}=${Math.round(weekJuhyu).toLocaleString('ko-KR')}원`);
+    }
+  });
+
   const grand = base + juhyu;
   set('on-pay', fmt(grand));
-  set('on-breakdown', '총 ' + total + '시간 × ' + rate.toLocaleString('ko-KR') + '원 + 주휴수당 ' + fmt(juhyu));
+  const detailText = juhyuDetail.length > 0
+    ? '주휴: ' + juhyuDetail.join(' / ')
+    : '주휴수당 발생 없음 (주 15시간 미만)';
+  set('on-breakdown', '총 ' + total + '시간 × ' + rate.toLocaleString('ko-KR') + '원\n' + detailText);
   set('on-total-hours', total + '시간');
   set('on-base-pay', fmt(base));
   set('on-juhyu', fmt(juhyu));
+  // 두 곳에 주휴수당 발생 주 표시
+  const juhyuWeeksText = juhyuWeeks + '주';
+  document.getElementById('on-juhyu-weeks-display').value = juhyuWeeksText;
+  const el2 = document.getElementById('on-juhyu-weeks-display2');
+  if (el2) el2.textContent = juhyuWeeksText;
   set('on-total', fmt(grand));
 }
 
