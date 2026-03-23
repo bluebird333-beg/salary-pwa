@@ -784,30 +784,33 @@ function buildWeekInputs() {
     const row = document.createElement('div');
     row.className = 'week-row';
     row.innerHTML = `<span class="week-label">제${i+1}주</span>
-      <input class="week-input" type="number" step="0.5" value="${h}" oninput="weekHours[${i}]=+this.value||0;calcOnline()">
-      <span class="week-unit">시간</span>`;
+      <input class="week-input" type="number" step="0.5" placeholder="0" value="${h === 0 ? '' : h}" oninput="weekHours[${i}]=+this.value||0;calcOnline()">
+      <span class="week-unit">시간</span>
+      <button onclick="removeWeek(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:0 4px;line-height:1;" title="삭제">×</button>`;
     c.appendChild(row);
   });
 }
 function addWeek() { weekHours.push(0); buildWeekInputs(); calcOnline(); }
+function removeWeek(i) { weekHours.splice(i, 1); buildWeekInputs(); calcOnline(); }
+
+function calcOnlineJuhyu(rate) {
+  let juhyu = 0, juhyuWeeks = 0, juhyuDetail = [];
+  weekHours.forEach((h, i) => {
+    if (h >= 15) {
+      const wj = (h / 5) * rate;
+      juhyu += wj;
+      juhyuWeeks++;
+      juhyuDetail.push(`제${i+1}주 ${h}h÷5×${rate.toLocaleString('ko-KR')}=${Math.round(wj).toLocaleString('ko-KR')}원`);
+    }
+  });
+  return { juhyu, juhyuWeeks, juhyuDetail };
+}
+
 function calcOnline() {
   const rate = num('on-rate');
   const total = weekHours.reduce((a, b) => a + b, 0);
   const base = total * rate;
-
-  // 주휴수당: 주 15시간 이상인 주에 대해 (해당주 시간 ÷ 5) × 시급
-  let juhyu = 0;
-  let juhyuWeeks = 0;
-  let juhyuDetail = [];
-  weekHours.forEach((h, i) => {
-    if (h >= 15) {
-      const weekJuhyu = (h / 5) * rate;
-      juhyu += weekJuhyu;
-      juhyuWeeks++;
-      juhyuDetail.push(`제${i+1}주 ${h}h÷5×${rate.toLocaleString('ko-KR')}=${Math.round(weekJuhyu).toLocaleString('ko-KR')}원`);
-    }
-  });
-
+  const { juhyu, juhyuWeeks, juhyuDetail } = calcOnlineJuhyu(rate);
   const grand = base + juhyu;
   set('on-pay', fmt(grand));
   const detailText = juhyuDetail.length > 0
@@ -817,7 +820,6 @@ function calcOnline() {
   set('on-total-hours', total + '시간');
   set('on-base-pay', fmt(base));
   set('on-juhyu', fmt(juhyu));
-  // 두 곳에 주휴수당 발생 주 표시
   const juhyuWeeksText = juhyuWeeks + '주';
   document.getElementById('on-juhyu-weeks-display').value = juhyuWeeksText;
   const el2 = document.getElementById('on-juhyu-weeks-display2');
@@ -863,11 +865,9 @@ function shareKakao(type) {
     text += `• 합계: ${total.toLocaleString('ko-KR')}원`;
   } else {
     const rate = num('on-rate');
-    const jw = num('on-juhyu-weeks');
+    const { juhyu } = calcOnlineJuhyu(rate);
     const total = weekHours.reduce((a,b) => a+b, 0);
     const base = total * rate;
-    const avg = weekHours.length ? total / weekHours.length : 0;
-    const juhyu = jw > 0 ? Math.round(avg * rate) * jw : 0;
     text += `\n[온라인-알바]\n`;
     text += `• 총 근무: ${total}시간\n`;
     text += `• 기본급: ${Math.round(base).toLocaleString('ko-KR')}원\n`;
@@ -892,26 +892,28 @@ function getState() {
   const base2 = num('hw2-base-days'), absent2 = num('hw2-absent'), extra2 = num('hw2-extra');
   const days2 = Math.max(0, base2 - absent2 + extra2);
   const p2 = days2 * num('hw2-hours') * num('hw2-rate') + num('hw2-bonus');
-  const base = num('kika-year'); const meal = num('kika-meal');
-  const v = num('kika-voucher');
-  const holiday = num('kika-holiday'); const vacation = num('kika-vacation');
+  const kikaBase = num('kika-year'), meal = num('kika-meal');
+  const v = num('kika-voucher'), holiday = num('kika-holiday'), vacation = num('kika-vacation');
   const overQty = v > 100 ? v - 100 : 0;
   const incentive = overQty * 5000;
-  const kikaTotal = base + meal + incentive + holiday + vacation;
-  const rate = num('on-rate'); const jw = num('on-juhyu-weeks');
-  const onTotal2 = weekHours.reduce((a,b)=>a+b,0);
-  const onBase = onTotal2 * rate;
-  const avg = weekHours.length ? onTotal2 / weekHours.length : 0;
-  const juhyu = jw > 0 ? Math.round(avg * rate) * jw : 0;
+  const kikaTotal = kikaBase + meal + incentive + holiday + vacation;
+  const rate = num('on-rate');
+  const onTotal = weekHours.reduce((a,b)=>a+b,0);
+  const onBase = onTotal * rate;
+  const { juhyu } = calcOnlineJuhyu(rate);
   const onGrand = onBase + juhyu;
   return { y, m, p1, p2, kikaTotal, onGrand, saved: new Date().toLocaleDateString('ko-KR') };
 }
 
 function saveHistory() {
-  const state = getState();
-  const key = `salary_${state.y}_${state.m}`;
-  localStorage.setItem(key, JSON.stringify(state));
-  showToast('✅ ' + state.y + '년 ' + state.m + '월 저장 완료');
+  try {
+    const state = getState();
+    const key = 'salary_' + state.y + '_' + ('0' + state.m).slice(-2);
+    localStorage.setItem(key, JSON.stringify(state));
+    showToast('✅ ' + state.y + '년 ' + state.m + '월 저장 완료');
+  } catch(e) {
+    showToast('❌ 저장 실패: ' + e.message);
+  }
 }
 
 function renderHistory() {
